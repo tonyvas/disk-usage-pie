@@ -55,19 +55,22 @@ def get_filesystem_tree(root_path, verbose = False):
                 if i % (line_count / 20) <= 1:
                     print(f'Parsing line {i + 1} / {line_count} ({int((i + 1) / line_count * 100)}%)')
 
-            # Get the size in bytes and the path
+            # Split DU output line
             line_parts = line.strip().split('\t')
+
+            # Get size in bytes
             size = int(line_parts[0].strip())
-            path = line_parts[1].strip()
+
+            # Get the path that leads to file
+            real_path = line_parts[1].strip()
+
+            # Get the path that would be relevant for the user (relative to target)
+            show_path = os.path.relpath(real_path, root_path)
 
             # Only handle files
-            if os.path.isfile(path):
+            if os.path.isfile(real_path):
                 # Split path into parts
-                path_parts = path.split('/')
-
-                # Handle absolute paths
-                if path_parts[0] == '':
-                    path_parts[0] = '/'
+                path_parts = show_path.split('/')
 
                 # Insert file size into tree
                 insert_into_dict(tree, path_parts, size)
