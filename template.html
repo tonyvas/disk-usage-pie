@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disk Usage Pie Graph</title>
+</head>
+<body>
+    <h1>Disk Usage Pie Graph</h1>
+
+    <script>
+        // Placeholder for filesystem tree
+        // JSON object encoded in base64
+        const TREE_JSON_BASE64 = "{{TREE_JSON_BASE64}}";
+
+        // Parse JSON
+        let tree = JSON.parse(atob(TREE_JSON_BASE64));
+
+        // For now just log the tree
+        console.log(tree);
+    </script>
+</body>
+</html>
