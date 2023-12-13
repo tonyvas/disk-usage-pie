@@ -22,18 +22,22 @@ def get_filesystem_tree(root_path):
     # Start root node of tree
     tree = {}
 
-    # Navigate over every child
-    for child in os.listdir(root_path):
-        # Get full path of child
-        child_path = os.path.join(root_path, child)
+    try:
+        # Navigate over every child
+        for child in os.listdir(root_path):
+            # Get full path of child
+            child_path = os.path.join(root_path, child)
 
-        # If child is a directory
-        if os.path.isdir(child_path):
-            # Make a branch with child tree
-            tree[child] = get_filesystem_tree(child_path)
-        else:
-            # Make a leaf with child size
-            tree[child] = get_size_on_disk(child_path)
+            # If child is a directory
+            if os.path.isdir(child_path):
+                # Make a branch with child tree
+                tree[child] = get_filesystem_tree(child_path)
+            elif os.path.isfile(child_path):
+                # Make a leaf with child size
+                tree[child] = get_size_on_disk(child_path)
+    except PermissionError as e:
+        # Assume directory is empty if we do not have permission to navigate dir
+        pass
 
     # Return tree
     return tree
