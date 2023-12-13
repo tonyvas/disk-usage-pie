@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import sys, os, json, time, base64
+import sys, os, json, time, base64, subprocess
 
 # Index in sys.argv where the root directory is to be found
 ARGV_PATH_INDEX = 1
@@ -8,39 +8,72 @@ ARGV_PATH_INDEX = 1
 # According to docs, block size is always 512 when using os.path
 BLOCK_SIZE = 512
 
-HTML_TEMPLATE_PATH = 'template.html'
+TEMPLATE_DIR = 'template'
+HTML_FILE_NAME = 'index.html'
+HTML_TEMPLATE_PATH = f'{TEMPLATE_DIR}/{HTML_FILE_NAME}'
 
-DUMP_PATH = f'/tmp/disk-usage-pie/{time.time_ns()}'
-HTML_DUMP_PATH = f'{DUMP_PATH}/pie.html'
+DUMP_DIR = f'/tmp/disk-usage-pie/{time.time_ns()}'
+HTML_DUMP_PATH = f'{DUMP_DIR}/{HTML_FILE_NAME}'
 HTML_PLACEHOLDER_TREE = '{{TREE_JSON_BASE64}}'
 
-def get_size_on_disk(path):
-    # Calculate size of used blocks
-    return os.stat(path).st_blocks * BLOCK_SIZE
+def insert_into_dict(parent_dict, keys, value):
+    if len(keys) == 0:
+        raise Exception('No keys given!')
+    elif len(keys) == 1:
+        # Set value into dict at key
+        parent_dict[keys[0]] = value
+    else:
+        # Get first key of list
+        key = keys[0]
+        # Remove key from rest of list
+        keys = keys[1:]
+        # Create child dict if it doesn't exist yet
+        if key not in parent_dict:
+            parent_dict[key] = {}
+        # Rerun this method with child dict
+        insert_into_dict(parent_dict[key], keys, value)
 
-def get_filesystem_tree(root_path):
-    # Start root node of tree
-    tree = {}
+def get_filesystem_tree(root_path, verbose = False):
+    # Run du
+    if verbose: print('Running DU utility')
+    du_proc = subprocess.run(['/usr/bin/du', '-a', '--block-size=1', root_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    try:
-        # Navigate over every child
-        for child in os.listdir(root_path):
-            # Get full path of child
-            child_path = os.path.join(root_path, child)
+    # Make sure du exited without errors
+    if du_proc.returncode == 0:
+        tree = {}
 
-            # If child is a directory
-            if os.path.isdir(child_path):
-                # Make a branch with child tree
-                tree[child] = get_filesystem_tree(child_path)
-            elif os.path.isfile(child_path):
-                # Make a leaf with child size
-                tree[child] = get_size_on_disk(child_path)
-    except PermissionError as e:
-        # Assume directory is empty if we do not have permission to navigate dir
-        pass
+        # Decode du output
+        du_output = du_proc.stdout.decode('utf-8')
+        du_lines = du_output.strip().split('\n')
+        line_count = len(du_lines)
 
-    # Return tree
-    return tree
+        # Iterate over du line
+        for i, line in enumerate(du_lines):
+            # Print progress if verbose
+            if verbose:
+                # Print every x percent complete
+                if i % (line_count / 20) <= 1:
+                    print(f'Parsing line {i + 1} / {line_count} ({int((i + 1) / line_count * 100)}%)')
+
+            # Get the size in bytes and the path
+            line_parts = line.strip().split('\t')
+            size = int(line_parts[0].strip())
+            path = line_parts[1].strip()
+
+            # Only handle files
+            if os.path.isfile(path):
+                # Split path into parts
+                path_parts = path.split('/')
+
+                # Handle absolute paths
+                if path_parts[0] == '':
+                    path_parts[0] = '/'
+
+                # Insert file size into tree
+                insert_into_dict(tree, path_parts, size)
+        return tree   
+    else:
+        raise Exception('DU exited with non-zero return code', du_proc.stderr.decode('utf-8'))
 
 def encode_tree(tree):
     # Convert object to JSON
@@ -63,8 +96,13 @@ def generate_html(tree):
         return html
 
 def generate_dump(tree):
-    # Generate dump directory
-    os.makedirs(DUMP_PATH, exist_ok=True)
+    # Generate dirs leading to dump directory
+    os.makedirs(os.path.dirname(DUMP_DIR), exist_ok=True)
+
+    # Copy template files
+    cp_proc = subprocess.run(['/usr/bin/cp', '-r', f'{TEMPLATE_DIR}', DUMP_DIR], stderr=subprocess.PIPE)
+    if cp_proc.returncode != 0:
+        raise Exception('CP exited with non-zero return code', cp_proc.stderr.decode('utf-8'))
 
     # Write HTML to dump file
     with open(HTML_DUMP_PATH, 'w') as f:
@@ -74,13 +112,13 @@ def generate_dump(tree):
 if len(sys.argv) >= ARGV_PATH_INDEX + 1:
     try:
         # Get usage tree of path
-        root_tree = get_filesystem_tree(sys.argv[ARGV_PATH_INDEX])
+        root_tree = get_filesystem_tree(sys.argv[ARGV_PATH_INDEX], verbose=True)
 
         # Generate dump dir
         generate_dump(root_tree)
 
         print(HTML_DUMP_PATH)
     except Exception as e:
-        print('Error:', e)
+        e.with_traceback()
 else:
     print('Usage: disk-usage-pie DIRECTORY_TO_GRAPH')

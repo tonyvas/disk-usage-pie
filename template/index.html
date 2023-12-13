@@ -3,21 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="style.css">
+
     <title>Disk Usage Pie Graph</title>
 </head>
 <body>
-    <h1>Disk Usage Pie Graph</h1>
+    <header>
+        <h1>Disk Usage Pie Graph</h1>
+    </header>
 
+    <main>
+        <canvas id="graph"></canvas>
+    </main>
+
+    <!-- Placeholder for filesystem tree -->
     <script>
-        // Placeholder for filesystem tree
         // JSON object encoded in base64
         const TREE_JSON_BASE64 = "{{TREE_JSON_BASE64}}";
-
-        // Parse JSON
-        let tree = JSON.parse(atob(TREE_JSON_BASE64));
-
-        // For now just log the tree
-        console.log(tree);
     </script>
+
+    <!-- Main JS for running the page -->
+    <script src="main.js"></script>
 </body>
 </html>
